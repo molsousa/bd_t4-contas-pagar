@@ -187,4 +187,20 @@ public class FornecedorDAO {
         
         return foneFornecedores;
     }
+    
+    public boolean atualizarSaldoFornecedor(Connection conn, double saldoAdicionado, int idFornecedor) throws Exception {
+        String SQLUpdate = "update fornecedor set saldo_total = saldo_total + ? where id_fornecedor = ?";
+        
+        try (PreparedStatement stmt = conn.prepareStatement(SQLUpdate)) {
+            stmt.setDouble(1, saldoAdicionado);
+            stmt.setInt(2, idFornecedor);
+            
+            int linhas = stmt.executeUpdate();
+            
+            return linhas > 0;
+        } catch (SQLException e) {
+            System.err.println("Erro na transação");
+            throw new SQLException(e);
+        }
+    }
 }
