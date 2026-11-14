@@ -13,6 +13,9 @@ public class MotivoFatura {
     private int idMotivoFatura;
     private String descricaoMotivoFatura;
 
+    public MotivoFatura() {
+    }
+
     public MotivoFatura(int idMotivoFatura) {
         this.idMotivoFatura = idMotivoFatura;
     }
