@@ -10,14 +10,14 @@ package com.contas.model;
  */
 public class DDI {
 
-    private long DDI;
+    private long nroDDI;
 
-    public long getDDI() {
-        return DDI;
+    public long getNroDDI() {
+        return nroDDI;
     }
 
-    public void setDDI(long DDI) {
-        this.DDI = DDI;
+    public void setNroDDI(long DDI) {
+        this.nroDDI = DDI;
     }
 
 }
