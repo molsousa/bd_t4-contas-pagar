@@ -83,9 +83,7 @@ public class FaturaDAO {
                     fatura.setValorFatura(rs.getDouble("valor_fatura"));
                     fatura.setPagamentoFeito(rs.getBoolean("pagamento_feito"));
                     
-                    MotivoFatura motivoFatura = new MotivoFatura();
-                    
-                    motivoFatura.setIdMotivoFatura(rs.getInt("id_motivo_fatura"));
+                    MotivoFatura motivoFatura = new MotivoFatura(rs.getInt("id_motivo_fatura"));
                     motivoFatura.setDescricaoMotivoFatura(rs.getString("motivo"));
                     
                     Fornecedor fornecedor = new Fornecedor();
@@ -93,6 +91,12 @@ public class FaturaDAO {
                     fornecedor.setIdFornecedor(idFornecedor);
                     fornecedor.setNomeFornecedor(rs.getString("nome_fornecedor"));
                     fornecedor.setSaldoTotal(rs.getDouble("saldo_total"));
+                    fornecedor.setCnpjFornecedor(rs.getString("cnpj"));
+                    
+                    FornecedorDAO fornecedorDAO = new FornecedorDAO();
+                    
+                    fornecedor.setEmails(fornecedorDAO.obterEmailFornecedores(conn, idFornecedor));
+                    fornecedor.setFones(fornecedorDAO.obterFoneFornecedores(conn, idFornecedor));
                     
                     EnderecoEspecifico enderecoEspecifico = new EnderecoEspecifico(rs.getInt("nro_endereco"), rs.getString("complemento"));
                     
@@ -123,8 +127,8 @@ public class FaturaDAO {
                     
                     TipoLogradouro tipoLogradouro = new TipoLogradouro();
                     
-                    tipoLogradouro.setSiglaTipoLogradouro("sigla_tipo_logradouro");
-                    tipoLogradouro.setNomeTipoLogradouro("nome_tipo_logradouro");
+                    tipoLogradouro.setSiglaTipoLogradouro(rs.getString("sigla_tipo_logradouro"));
+                    tipoLogradouro.setNomeTipoLogradouro(rs.getString("nome_tipo_logradouro"));
                     
                     logradouro.setTipoLogradouro(tipoLogradouro);
                     cidade.setUf(uf);
@@ -134,6 +138,7 @@ public class FaturaDAO {
                     enderecoEspecifico.setEndereco(endereco);
                     fornecedor.setEnderecoEspecifico(enderecoEspecifico);
                     fatura.setFornecedor(fornecedor);
+                    fatura.setMotivoFatura(motivoFatura);
                     
                     faturas.add(fatura);
                 }
@@ -143,6 +148,71 @@ public class FaturaDAO {
         }
         
         return faturas;
+    }
+    
+    public void cadastrarFaturaSucesso(Connection conn, int idFornecedor, MotivoFatura motivoFatura) throws Exception {
+        String SQLInsert = "insert into fatura (data_lancamento,data_vencimento,valor_fatura,pagamento_feito,id_fornecedor,id_motivo_fatura) "
+                + "values (current_date, currente_date+30, 500.00, false, ?, ?)";
+        
+        String SQLUpdate = "update fornecedor set saldo_total = saldo_total + 500.00 where id_fornecedor = ?";
+        
+        try (PreparedStatement stmtInsert = conn.prepareStatement(SQLInsert);
+                PreparedStatement stmtUpdate = conn.prepareStatement(SQLUpdate)) {
+            stmtInsert.setInt(1, idFornecedor);
+            stmtInsert.setInt(2, motivoFatura.getIdMotivoFatura());
+            stmtInsert.executeUpdate();
+            
+            stmtUpdate.setInt(1, idFornecedor);
+            stmtUpdate.executeUpdate();
+            
+            System.out.println("Transação ok");
+        } catch (SQLException e) {
+            System.err.println("Erro na transação");
+            throw new SQLException(e);
+        }
+    }
+    
+    public void cadastrarFaturaIncompleta(Connection conn, int idFornecedor, MotivoFatura motivoFatura) throws Exception {
+        String SQLInsert = "insert into fatura (data_lancamento,data_vencimento,valor_fatura,pagamento_feito,id_fornecedor,id_motivo_fatura) "
+                + "values (CURRENT_DATE, CURRENT_DATE+30, 500.00, false, ?, ?)";
+        
+        String SQLUpdate = "update fornecedor set saldo_total = saldo_total + 500.00 where id_fornecedor = ?";
+        
+        try (PreparedStatement stmtInsert = conn.prepareStatement(SQLInsert);
+                PreparedStatement stmtUpdate = conn.prepareStatement(SQLUpdate)) {
+            stmtInsert.setInt(1, idFornecedor);
+            stmtInsert.setInt(2, motivoFatura.getIdMotivoFatura());
+            stmtInsert.executeUpdate();
+            
+            stmtUpdate.setInt(1, idFornecedor);
+            stmtUpdate.executeUpdate();
+            
+            System.err.println("Simulando queda do sistema");
+            System.exit(1);
+        }
+    }
+    
+    public void cadastrarFaturaRollback(Connection conn, int idFornecedor, MotivoFatura motivoFatura) throws Exception {
+        String SQLInsert = "insert into fatura (data_lancamento,data_vencimento,valor_fatura,pagamento_feito,id_fornecedor,id_motivo_fatura) "
+                + "values (CURRENT_DATE, CURRENT_DATE+30, 500.00, false, ?, ?)";
+        
+        String SQLUpdate = "update fornecedor set saldo_total = saldo_total + 500.00 where id_fornecedor = ?";
+        
+        try (PreparedStatement stmtInsert = conn.prepareStatement(SQLInsert);
+                PreparedStatement stmtUpdate = conn.prepareStatement(SQLUpdate)) {
+            stmtInsert.setInt(1, idFornecedor);
+            stmtInsert.setInt(2, motivoFatura.getIdMotivoFatura());
+            stmtInsert.executeUpdate();
+            
+            stmtUpdate.setInt(1, idFornecedor);
+            stmtUpdate.executeUpdate();
+            
+            double saldoPrevisto = 100000.0;
+            
+            if(saldoPrevisto > 10000.0) {
+                throw new Exception("Saldo previsto muito alto");
+            }
+        }
     }
     
 }
