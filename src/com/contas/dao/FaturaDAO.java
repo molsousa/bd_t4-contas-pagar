@@ -26,6 +26,57 @@ import java.util.List;
  * @author molsousa
  */
 public class FaturaDAO {
+    
+    public boolean cadastrarFatura(Connection conn, int idFornecedor, Fatura fatura) throws Exception {
+        String SQLInsert = "insert into fatura (data_lancamento,data_vencimento,valor_fatura,pagamento_feito,id_fornecedor,id_motivo_fatura) "
+                + "values (?,?,?,?,?,?)";
+
+        try (PreparedStatement stmt = conn.prepareStatement(SQLInsert)) {
+            stmt.setDate(1, fatura.getDataLancamento());
+            stmt.setDate(2, fatura.getDataVencimento());
+            stmt.setDouble(3, fatura.getValorFatura());
+            stmt.setBoolean(4, fatura.isPagamentoFeito());
+            stmt.setInt(5, idFornecedor);
+            stmt.setInt(6, fatura.getMotivoFatura().getIdMotivoFatura());
+
+            int linhasAfetadas = stmt.executeUpdate();
+
+            return linhasAfetadas > 0;
+        } catch (SQLException e) {
+            System.err.println("Erro na transação");
+            throw new SQLException(e);
+        }
+    }
+    
+    public Fatura obterFaturaPorNro(Connection conn, int nroFatura, int idFornecedor) throws Exception {
+        String SQL = "select \n"
+                + "    f.nro_fatura,\n"
+                + "    f.valor_fatura,\n"
+                + "    f.pagamento_feito,\n"
+                + "    f.id_fornecedor\n"
+                + "from fatura f\n"
+                + "where f.nro_fatura = ?";
+        
+        Fatura fatura = new Fatura();
+        
+        try (PreparedStatement stmt = conn.prepareStatement(SQL)) {
+            stmt.setInt(1, nroFatura);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if(rs.next()) {
+                    if(idFornecedor == rs.getInt("id_fornecedor") && !rs.getBoolean("pagamento_feito")) {
+                        fatura.setValorFatura(rs.getDouble("valor_fatura"));
+                    
+                        return fatura;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new SQLException("Erro ao buscar faturas no banco: " + e.getMessage(), e);
+        }
+        
+        return null;
+    }
 
     public List<Fatura> obterFaturas(Connection conn, int idFornecedor) throws Exception {
 
@@ -150,27 +201,6 @@ public class FaturaDAO {
         return faturas;
     }
 
-    public boolean cadastrarFatura(Connection conn, int idFornecedor, Fatura fatura) throws Exception {
-        String SQLInsert = "insert into fatura (data_lancamento,data_vencimento,valor_fatura,pagamento_feito,id_fornecedor,id_motivo_fatura) "
-                + "values (?,?,?,?,?,?)";
-
-        try (PreparedStatement stmt = conn.prepareStatement(SQLInsert)) {
-            stmt.setDate(1, fatura.getDataLancamento());
-            stmt.setDate(2, fatura.getDataVencimento());
-            stmt.setDouble(3, fatura.getValorFatura());
-            stmt.setBoolean(4, fatura.isPagamentoFeito());
-            stmt.setInt(5, idFornecedor);
-            stmt.setInt(6, fatura.getMotivoFatura().getIdMotivoFatura());
-
-            int linhasAfetadas = stmt.executeUpdate();
-
-            return linhasAfetadas > 0;
-        } catch (SQLException e) {
-            System.err.println("Erro na transação");
-            throw new SQLException(e);
-        }
-    }
-
     public void cadastrarFaturaSucesso(Connection conn, int idFornecedor, MotivoFatura motivoFatura) throws Exception {
         String SQLInsert = "insert into fatura (data_lancamento,data_vencimento,valor_fatura,pagamento_feito,id_fornecedor,id_motivo_fatura) "
                 + "values (CURRENT_DATE, CURRENT_DATE+30, 500.00, false, ?, ?)";
@@ -232,52 +262,19 @@ public class FaturaDAO {
             }
         }
     }
-
-    public boolean cadastrarMotivoFatura(Connection conn, MotivoFatura motivoFatura) throws Exception {
-        String SQLInsert = "insert into motivo_fatura (descricao_motivo_fatura) values (?)";
-
-        try (PreparedStatement stmt = conn.prepareStatement(SQLInsert)) {
-            stmt.setString(1, motivoFatura.getDescricaoMotivoFatura());
-
+    
+    public boolean atualizarPagamento(Connection conn, int idFornecedor, int nroFatura) throws Exception {
+        String SQLUpdate = "update fatura set pagamento_feito = true where id_fornecedor = ? and nro_fatura = ?";
+        
+        try (PreparedStatement stmt = conn.prepareStatement(SQLUpdate)) {
+            stmt.setInt(1, idFornecedor);
+            stmt.setInt(2, nroFatura);
+            
             int linhas = stmt.executeUpdate();
-
+            
             return linhas > 0;
         } catch (SQLException e) {
-            System.err.println("Erro na transação: " + e.getMessage());
-            throw new SQLException(e);
-        }
-    }
-
-    public int obterIDMotivoFatura(Connection conn, MotivoFatura motivoFatura) throws Exception {
-        String SQLSelect = "select * from motivo_fatura where descricao_motivo_fatura = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(SQLSelect)) {
-            stmt.setString(1, motivoFatura.getDescricaoMotivoFatura());
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("id_motivo_fatura");
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("Erro na busca: " + e.getMessage());
-            throw new SQLException(e);
-        }
-
-        throw new Exception("Id não encontrado no banco");
-    }
-
-    public boolean removerMotivoFatura(Connection conn, MotivoFatura motivoFatura) throws Exception {
-        String SQLDelete = "delete from motivo_fatura where id_motivo_fatura = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(SQLDelete)) {
-            stmt.setInt(1, motivoFatura.getIdMotivoFatura());
-
-            int linhas = stmt.executeUpdate();
-
-            return linhas > 0;
-        } catch (SQLException e) {
-            System.err.println("Erro na transação: " + e.getMessage());
+            System.err.println("Erro na transação");
             throw new SQLException(e);
         }
     }

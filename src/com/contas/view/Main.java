@@ -11,6 +11,7 @@ import com.contas.connection.UsuarioInsert;
 import com.contas.connection.UsuarioQuery;
 import com.contas.dao.FaturaDAO;
 import com.contas.dao.FornecedorDAO;
+import com.contas.dao.MotivoFaturaDAO;
 import com.contas.model.EmailFornecedor;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -32,10 +33,9 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
 
-        int opcao = 1;
+        int opcao;
 
-        while (opcao != 0) {
-
+        do {
             System.out.println();
             System.out.println("------------ SISTEMA DE CONTAS A PAGAR ------------");
             System.out.println("| 1 - Obter fornecedores                          |");
@@ -47,6 +47,7 @@ public class Main {
             System.out.println("| 7 - Simular usuário insert                      |");
             System.out.println("| 8 - Simular admin                               |");
             System.out.println("| 9 - Inserir fatura                              |");
+            System.out.println("| 10 - Pagar fatura                               |");
             System.out.println("| 0 - Sair                                        |");
             System.out.println("---------------------------------------------------");
             System.out.print("Selecione uma opção: ");
@@ -54,7 +55,8 @@ public class Main {
             System.out.println();
 
             int idFornecedor;
-
+            int nroFatura;
+            
             switch (opcao) {
                 case 1:
                     queryFornecedores();
@@ -104,11 +106,18 @@ public class Main {
                     insertFatura();
                     System.out.println();
                     break;
+                case 10:
+                    System.out.print("Digite o ID do fornecedor: ");
+                    idFornecedor = scanner.nextInt();
+                    System.out.print("Digite o Nro da fatura: ");
+                    nroFatura = scanner.nextInt();
+                    pagarFatura(nroFatura, idFornecedor);
+                    break;
                 case 0:
                     System.out.println("Obrigado");
                     break;
             }
-        }
+        } while (opcao != 0);
     }
 
     private static void insertFatura() throws Exception {
@@ -133,8 +142,10 @@ public class Main {
         motivoFatura.setDescricaoMotivoFatura(scanner.nextLine());
 
         try (Connection conn = ConnectionFactory.getConnection(Root.USER, Root.PASS)) {
+            MotivoFaturaDAO motivoFaturaDAO = new MotivoFaturaDAO();
+            
             try {
-                motivoFatura.setIdMotivoFatura(faturaDAO.obterIDMotivoFatura(conn, motivoFatura));
+                motivoFatura.setIdMotivoFatura(motivoFaturaDAO.obterIDMotivoFatura(conn, motivoFatura));
                 conn.commit();
             } catch (Exception e) {
 
@@ -143,8 +154,8 @@ public class Main {
                     System.err.println(e);
                 }
 
-                faturaDAO.cadastrarMotivoFatura(conn, motivoFatura);
-                motivoFatura.setIdMotivoFatura(faturaDAO.obterIDMotivoFatura(conn, motivoFatura));
+                motivoFaturaDAO.cadastrarMotivoFatura(conn, motivoFatura);
+                motivoFatura.setIdMotivoFatura(motivoFaturaDAO.obterIDMotivoFatura(conn, motivoFatura));
                 conn.commit();
             }
         }
@@ -166,9 +177,34 @@ public class Main {
 
         try (Connection conn = ConnectionFactory.getConnection(Root.USER, Root.PASS)) {
             try {
+                if (!fatura.isPagamentoFeito()) {
+                    FornecedorDAO fornecedorDAO = new FornecedorDAO();
+                    fornecedorDAO.atualizarSaldoFornecedor(conn, fatura.getValorFatura(), idFornecedor);
+                }
+
                 if (faturaDAO.cadastrarFatura(conn, idFornecedor, fatura)) {
                     System.out.println("Cadastro concluído");
                 }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw new SQLException(e);
+            }
+        }
+    }
+    
+    private static void pagarFatura(int nroFatura, int idFornecedor) throws Exception {
+        FaturaDAO faturaDAO = new FaturaDAO();
+        
+        try (Connection conn = ConnectionFactory.getConnection(Root.USER, Root.PASS)) {
+            try {
+                Fatura fatura = faturaDAO.obterFaturaPorNro(conn, nroFatura, idFornecedor);
+                FornecedorDAO fornecedorDAO = new FornecedorDAO();
+                
+                fornecedorDAO.atualizarSaldoFornecedor(conn, -fatura.getValorFatura(), idFornecedor);
+                
+                faturaDAO.atualizarPagamento(conn, idFornecedor, nroFatura);
+                
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
@@ -204,6 +240,7 @@ public class Main {
     private static void queryFatura(int idFornecedor) throws Exception {
         FaturaDAO faturaDAO = new FaturaDAO();
         List<Fatura> faturas;
+        double valorTotal = .0f;
 
         try (Connection conn = ConnectionFactory.getConnection(Root.USER, Root.PASS)) {
 
@@ -241,8 +278,11 @@ public class Main {
                 for (Fatura fatura : faturas) {
                     System.out.print("NRO: " + fatura.getNroFatura() + " ");
                     System.out.println("Motivo da fatura: " + fatura.getMotivoFatura().getDescricaoMotivoFatura() + " ");
+                    System.out.println("Data de lançamento: " + fatura.getDataLancamento());
                     System.out.print("Data de vencimento: " + fatura.getDataVencimento() + " ");
                     System.out.print("Valor a pagar: R$ " + fatura.getValorFatura() + " -> ");
+                    
+                    valorTotal = valorTotal + fatura.getValorFatura();
 
                     if (fatura.isPagamentoFeito()) {
                         System.out.println("Pago");
@@ -251,6 +291,8 @@ public class Main {
                     }
                     System.out.println();
                 }
+                
+                System.out.println("Valor total da soma das faturas: " + valorTotal);
 
                 conn.commit();
             } catch (SQLException e) {
@@ -261,24 +303,24 @@ public class Main {
     }
 
     private static void simularAdminTotal() throws Exception {
-        FaturaDAO faturaDAO = new FaturaDAO();
 
         try (Connection conn = ConnectionFactory.getConnection(AdminTotal.USER, AdminTotal.PASS)) {
             try {
+                MotivoFaturaDAO motivoFaturaDAO = new MotivoFaturaDAO();
                 MotivoFatura motivoFatura = new MotivoFatura();
                 motivoFatura.setDescricaoMotivoFatura("novo_motivo_fatura");
 
-                if (faturaDAO.cadastrarMotivoFatura(conn, motivoFatura)) {
+                if (motivoFaturaDAO.cadastrarMotivoFatura(conn, motivoFatura)) {
                     System.out.println("cadastro feito");
                 }
 
-                int idMotivoFatura = faturaDAO.obterIDMotivoFatura(conn, motivoFatura);
+                int idMotivoFatura = motivoFaturaDAO.obterIDMotivoFatura(conn, motivoFatura);
 
                 System.out.println("ID inserido: " + idMotivoFatura);
 
                 motivoFatura.setIdMotivoFatura(idMotivoFatura);
 
-                if (faturaDAO.removerMotivoFatura(conn, motivoFatura)) {
+                if (motivoFaturaDAO.removerMotivoFatura(conn, motivoFatura)) {
                     System.out.println("remoção feita");
                 }
                 conn.commit();
@@ -293,6 +335,7 @@ public class Main {
         FaturaDAO faturaDAO = new FaturaDAO();
 
         try (Connection conn = ConnectionFactory.getConnection(UsuarioQuery.USER, UsuarioQuery.PASS)) {
+            MotivoFaturaDAO motivoFaturaDAO = new MotivoFaturaDAO();
             try {
                 List<Fatura> faturas = faturaDAO.obterFaturas(conn, idFornecedor);
 
@@ -313,7 +356,7 @@ public class Main {
                 MotivoFatura motivoFatura = new MotivoFatura();
                 motivoFatura.setDescricaoMotivoFatura("Compra de alimentos");
 
-                faturaDAO.cadastrarMotivoFatura(conn, motivoFatura);
+                motivoFaturaDAO.cadastrarMotivoFatura(conn, motivoFatura);
 
                 conn.commit();
             } catch (SQLException e) {
@@ -327,22 +370,23 @@ public class Main {
         FaturaDAO faturaDAO = new FaturaDAO();
 
         try (Connection conn = ConnectionFactory.getConnection(UsuarioInsert.USER, UsuarioInsert.PASS)) {
+            MotivoFaturaDAO motivoFaturaDAO = new MotivoFaturaDAO();
             try {
                 MotivoFatura motivoFatura = new MotivoFatura();
                 motivoFatura.setIdMotivoFatura(1);
                 motivoFatura.setDescricaoMotivoFatura("novo_motivo_fatura");
 
-                if (faturaDAO.cadastrarMotivoFatura(conn, motivoFatura)) {
+                if (motivoFaturaDAO.cadastrarMotivoFatura(conn, motivoFatura)) {
                     System.out.println("cadastro feito");
                 }
 
-                int idMotivoFatura = faturaDAO.obterIDMotivoFatura(conn, motivoFatura);
+                int idMotivoFatura = motivoFaturaDAO.obterIDMotivoFatura(conn, motivoFatura);
 
                 System.out.println("ID inserido: " + idMotivoFatura);
 
                 motivoFatura.setIdMotivoFatura(idMotivoFatura);
 
-                if (faturaDAO.removerMotivoFatura(conn, motivoFatura)) {
+                if (motivoFaturaDAO.removerMotivoFatura(conn, motivoFatura)) {
                     System.out.println("remoção feita");
                 }
                 conn.commit();
@@ -374,9 +418,7 @@ public class Main {
         try (Connection conn = ConnectionFactory.getConnection(Root.USER, Root.PASS)) {
             try {
                 faturaDAO.cadastrarFaturaIncompleta(conn, idFornecedor, new MotivoFatura(1));
-                conn.commit();
             } catch (SQLException e) {
-                conn.rollback();
                 System.err.println(e);
             }
         }
