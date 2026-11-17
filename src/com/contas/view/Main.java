@@ -56,7 +56,7 @@ public class Main {
 
             int idFornecedor;
             int nroFatura;
-            
+
             switch (opcao) {
                 case 1:
                     queryFornecedores();
@@ -143,7 +143,7 @@ public class Main {
 
         try (Connection conn = ConnectionFactory.getConnection(Root.USER, Root.PASS)) {
             MotivoFaturaDAO motivoFaturaDAO = new MotivoFaturaDAO();
-            
+
             try {
                 motivoFatura.setIdMotivoFatura(motivoFaturaDAO.obterIDMotivoFatura(conn, motivoFatura));
                 conn.commit();
@@ -192,19 +192,19 @@ public class Main {
             }
         }
     }
-    
+
     private static void pagarFatura(int nroFatura, int idFornecedor) throws Exception {
         FaturaDAO faturaDAO = new FaturaDAO();
-        
+
         try (Connection conn = ConnectionFactory.getConnection(Root.USER, Root.PASS)) {
             try {
                 Fatura fatura = faturaDAO.obterFaturaPorNro(conn, nroFatura, idFornecedor);
                 FornecedorDAO fornecedorDAO = new FornecedorDAO();
-                
+
                 fornecedorDAO.atualizarSaldoFornecedor(conn, -fatura.getValorFatura(), idFornecedor);
-                
+
                 faturaDAO.atualizarPagamento(conn, idFornecedor, nroFatura);
-                
+
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
@@ -281,7 +281,7 @@ public class Main {
                     System.out.println("Data de lançamento: " + fatura.getDataLancamento());
                     System.out.print("Data de vencimento: " + fatura.getDataVencimento() + " ");
                     System.out.print("Valor a pagar: R$ " + fatura.getValorFatura() + " -> ");
-                    
+
                     valorTotal = valorTotal + fatura.getValorFatura();
 
                     if (fatura.isPagamentoFeito()) {
@@ -291,7 +291,7 @@ public class Main {
                     }
                     System.out.println();
                 }
-                
+
                 System.out.println("Valor total da soma das faturas: " + valorTotal);
 
                 conn.commit();
@@ -367,13 +367,10 @@ public class Main {
     }
 
     private static void simularUsuarioInsert() throws Exception {
-        FaturaDAO faturaDAO = new FaturaDAO();
-
         try (Connection conn = ConnectionFactory.getConnection(UsuarioInsert.USER, UsuarioInsert.PASS)) {
             MotivoFaturaDAO motivoFaturaDAO = new MotivoFaturaDAO();
             try {
                 MotivoFatura motivoFatura = new MotivoFatura();
-                motivoFatura.setIdMotivoFatura(1);
                 motivoFatura.setDescricaoMotivoFatura("novo_motivo_fatura");
 
                 if (motivoFaturaDAO.cadastrarMotivoFatura(conn, motivoFatura)) {
